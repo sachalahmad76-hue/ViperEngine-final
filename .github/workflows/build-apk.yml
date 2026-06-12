@@ -6,13 +6,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Unpacks the zip file you just uploaded
-      - name: Unzip project files
+      - name: Unzip and Fix Folder Structure
         run: |
           unzip -o app.zip
           rm app.zip
+          # If files are buried inside a sub-folder, pull them out to the root
+          if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
+            echo "Files not found in root. Searching in subfolders..."
+            SUBFOLDER=$(find . -maxdepth 2 -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 | xargs dirname)
+            if [ ! -z "$SUBFOLDER" ] && [ "$SUBFOLDER" != "." ]; then
+              echo "Moving files out of $SUBFOLDER..."
+              mv $SUBFOLDER/* . 2>/dev/null || true
+              mv $SUBFOLDER/.* . 2>/dev/null || true
+            fi
+          fi
 
-      # Makes sure the compilation scripts are allowed to run
       - name: Make Gradle executable
         run: |
           chmod +x gradlew || true
@@ -31,11 +39,10 @@ jobs:
         with:
           gradle-version: '8.0'
 
-      # Compiles your project files into the final app
       - name: Build with Gradle
         run: ./gradlew assembleDebug || gradle assembleDebug
 
-      # Saves the created APK file for download
+       Silber Artifact Save
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -43,4 +50,3 @@ jobs:
           path: |
             **/build/outputs/apk/debug/*.apk
             **/*.apk
-            
